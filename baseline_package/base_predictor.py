@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
+from sklearn.metrics import make_scorer
 
 
 
@@ -41,8 +42,20 @@ class BasePredictor:
 
 
     def optimise_hyperparams(self):
+        ## Custom scoring metric for GridSearch
+        def custom_metric(Y_true, Y_pred):
+            tn, fp, fn, tp      = confusion_matrix(y_true = Y_true, y_pred = Y_pred).ravel()
+
+            sensitivity         = (float(tp)/(tp+fn))
+            specificity         = (float(tn)/(tn+fp))
+
+            return (sensitivity)
+        
+        scorer = make_scorer(custom_metric, greater_is_better = True)
+
+
         ## Get best params for current split
-        self.gridsearch         = GridSearchCV(estimator = self.model, param_grid = self.params, cv = self.skf)
+        self.gridsearch         = GridSearchCV(estimator = self.model, param_grid = self.params, cv = self.skf, scoring = scorer)
 
         self.gridsearch.fit(self.data['X'], self.data['Y'])
         self.best_params        = self.gridsearch.best_params_
