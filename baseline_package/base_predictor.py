@@ -49,7 +49,7 @@ class BasePredictor:
             sensitivity         = (float(tp)/(tp+fn))
             specificity         = (float(tn)/(tn+fp))
 
-            return (sensitivity)
+            return (sensitivity * specificity)
         
         scorer = make_scorer(custom_metric, greater_is_better = True)
 
@@ -58,7 +58,9 @@ class BasePredictor:
         self.gridsearch         = GridSearchCV(estimator = self.model, param_grid = self.params, cv = self.skf, scoring = scorer)
 
         self.gridsearch.fit(self.data['X'], self.data['Y'])
+        
         self.best_params        = self.gridsearch.best_params_
+        self.model              = self.gridsearch.best_estimator_
 
 
     def train(self):
@@ -80,25 +82,20 @@ class BasePredictor:
         self.preds.append(self.Ypr)
 
 
-    def run(self, features = None, select_path = "feature_select/feature_tests.xlsx"):
+    def run(self, features = None, select_path = None):
         ## Select features to be considered, if not given use the most optimal
         if(features):
             self.data['X']      = self.data['X'][features]
         elif(select_path):
             self.select         = pd.read_excel(select_path)
-            self.params         = list(self.select[self.select['Significant'] == 'S']['Feature'])
+            self.features       = list(self.select[self.select['Significant'] == 'S']['Feature'])
 
             self.data['X']      = self.data['X'][self.params]
-        else:
-            self.params         = None
 
 
         ## Get best hyperparams for current iteration
         if(self.params):
             self.optimise_hyperparams()
-
-            for param,val in self.best_params.items():
-                setattr(self.model,param,val)
 
 
         ## Train-test split (stratified to account for class imbalance)
