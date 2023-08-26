@@ -138,7 +138,7 @@ class BasePredictor:
             # self.tr         = tr_ind
             # self.ts         = ts_ind
 
-        self.Xtr, self.Xts, self.Ytr, self.Yts = train_test_split(self.data['X'], self.data['Y'], test_size=0.3, stratify=self.data['Y'], random_state=8)
+        self.Xtr, self.Xts, self.Ytr, self.Yts = train_test_split(self.data['X'], self.data['Y'], test_size=0.3, random_state=8)
 
         ## Train the model on the current split
         self.train(self.data_re)
