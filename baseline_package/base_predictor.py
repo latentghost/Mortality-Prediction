@@ -5,6 +5,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV
 
 from sklearn.base import BaseEstimator
+from sklearn.decomposition import PCA
 from sklearn.utils import resample
 from sklearn.model_selection import train_test_split
 
@@ -81,12 +82,12 @@ class BasePredictor:
 
 
     def train(self, data):
-        # ## Train-Test split
-        # self.Xtr            = np.array(data['X'].iloc[self.tr])
-        # self.Xts            = np.array(data['X'].iloc[self.ts])
+        ## Train-Test split
+        self.Xtr            = np.array(data['X'].iloc[self.tr])
+        self.Xts            = np.array(data['X'].iloc[self.ts])
 
-        # self.Ytr            = np.array(data['Y'].iloc[self.tr])
-        # self.Yts            = np.array(data['Y'].iloc[self.ts])
+        self.Ytr            = np.array(data['Y'].iloc[self.tr])
+        self.Yts            = np.array(data['Y'].iloc[self.ts])
 
         ## Fit the model on the entire training set
         self.model.fit(self.Xtr,self.Ytr)
@@ -111,14 +112,16 @@ class BasePredictor:
         ## Resampling
         ## Development data, kept separate from unseen data
         X_dev, X_un, Y_dev, Y_un    = train_test_split(self.data['X'], self.data['Y'], test_size=0.2, random_state=0)
-        self.dev            = pd.concat([X_dev,Y_dev],axis=1)
+        self.dev            = {}
+        self.dev['X']       = X_dev
+        self.dev['Y']       = Y_dev
         
-        minority            = self.dev[self.dev[self.target] == 1]
-        majority            = self.dev[self.dev[self.target] == 0]
+        minority            = pd.concat([self.dev['X'][self.dev['Y'] == 1],self.dev['Y'][self.dev['Y'] == 1]],axis=1)
+        majority            = pd.concat([self.dev['X'][self.dev['Y'] == 0],self.dev['Y'][self.dev['Y'] == 0]],axis=1)
 
-        ## Resample to 1000 sampled for each class
-        min_resampled       = resample(minority, n_samples=1200, replace=True, random_state=8)
-        maj_resampled       = resample(majority, n_samples=1200, replace=True, random_state=8)
+        ## Resample to 1200 sampled for each class
+        min_resampled       = resample(minority, n_samples=1000, replace=True, random_state=8)
+        maj_resampled       = resample(majority, n_samples=1000, replace=False, random_state=8)
         
         ## Revised dataset
         self.data_re['X']   = pd.concat([maj_resampled, min_resampled],axis=0)
@@ -128,29 +131,29 @@ class BasePredictor:
         
         ## Get best hyperparams for current iteration
         if(self.params):
-            self.optimise_hyperparams(self.data)
+            self.optimise_hyperparams(self.dev)
 
         
-        # ## Stratified splitting on the dev data
-        # for tr_ind, ts_ind in self.skf.split(self.data_re['X'], self.data_re['Y']):
+        ## Stratified splitting on the dev data
+        for tr_ind, ts_ind in self.skf.split(self.dev['X'], self.dev['Y']):
 
-            # ## Split into training and testing set
-            # self.tr         = tr_ind
-            # self.ts         = ts_ind
+            ## Split into training and testing set
+            self.tr         = tr_ind
+            self.ts         = ts_ind
 
-        self.Xtr, self.Xts, self.Ytr, self.Yts = train_test_split(self.data['X'], self.data['Y'], test_size=0.3, random_state=8)
+        # self.Xtr, self.Xts, self.Ytr, self.Yts = train_test_split(self.data_re['X'], self.data_re['Y'], test_size=0.3, random_state=8)
 
-        ## Train the model on the current split
-        self.train(self.data_re)
+            ## Train the model on the current split
+            self.train(self.dev)
 
-        ## Get predictions for the current split
-        self.predict(self.preds_re)
+            ## Get predictions for the current split
+            self.predict(self.preds_re)
 
-        ## Get RMSE score and Confusion matrix for current split
-        self.get_errors(self.rmses_re, self.confs_re)
+            ## Get RMSE score and Confusion matrix for current split
+            self.get_errors(self.rmses_re, self.confs_re)
 
-        ## Get performance metrics for current split
-        self.get_metrics(self.accs_re, self.sens_re, self.specs_re, self.f1s_re)
+            ## Get performance metrics for current split
+            self.get_metrics(self.accs_re, self.sens_re, self.specs_re, self.f1s_re)
 
         
         ## Results on unseen data
